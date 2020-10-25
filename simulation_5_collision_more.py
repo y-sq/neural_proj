@@ -5,6 +5,7 @@ from _evaluate_constraint import *
 from numpy.random import rand
 
 
+
 MODEL_NAME = "collision"
 NUM_PARTICLES = 8
 DIMENSION = 2
@@ -15,6 +16,7 @@ RESULT_ROOT = "results/"
 TS = 50
 DT = 0.1
 
+
 rigid = np.array([[ 0.130514,   0.437662 ],
                     [ 0.0862001,  0.882675 ],
                     [ 0.575526,   0.481976 ],
@@ -23,61 +25,69 @@ rigid = np.array([[ 0.130514,   0.437662 ],
 model_path = TEST_MODEL_ROOT + MODEL_NAME + "/" + "best_model.pt"
 
 c_net = MLP_Constraint(num_particles=NUM_PARTICLES,
-                        dimension=DIMENSION, num_features=C_LAYERS)
+                        dimension=DIMENSION, num_features=C_LAYERS).cuda()
 c_net.load_state_dict(torch.load(model_path))
-proj_model = Projection(num_particles=NUM_PARTICLES,
-                        dimension=DIMENSION, constrains=c_net, num_iter=NUM_ITER)
+single_proj_model = Projection(num_particles=NUM_PARTICLES,
+                        dimension=DIMENSION, constrains=c_net, num_iter=NUM_ITER).cuda()
+groups = []
+for i in range(4):
+    for j in range(i+1,4):
+        groups.append([i*4+k for k in range(4)] + [j*4+k for k in range(4)])
+proj_model = GroupProjection2(16, DIMENSION, [single_proj_model], [groups], 10).cuda()
 
-R = 2
-r = 0.1
 
 def create_simulation_random_vel(idx):
     pos_list = []
-
-    NAME = "collision"+str(idx)
+    NAME = "collision_more" + str(idx)
     root_path = RESULT_ROOT + NAME + "/"
-    
-    pos = np.array([[ 0.130514,   0.437662 ],
-                    [ 0.0862001,  0.882675 ],
-                    [ 0.575526,   0.481976 ],
-                    [ 0.531213,   0.926988 ],
-                    [-0.457831,  -0.12947  ],
-                    [-0.5583,     0.306311 ],
-                    [-0.0220487, -0.0290008],
-                    [-0.122518,   0.406781 ]])
-    vel = np.array([[5.0, 0.0],[5.0, 0.0],[5.0, 0.0],[5.0, 0.0],
-                    [5.0, 0.0],[5.0, 0.0],[5.0, 0.0],[5.0, 0.0]]) * 0.4
-    for i in range(2):
+
+
+    rigid = np.array([[ 0.130514,   0.437662 ],
+                        [ 0.0862001,  0.882675 ],
+                        [ 0.575526,   0.481976 ],
+                        [ 0.531213,   0.926988 ]])    
+    pos = np.zeros([16,2])
+    pos[0:4, :] = rigid + np.array([-1.2,-0.5])
+    pos[4:8, :] = rigid + np.array([0.25,-0.5])
+    pos[8:12, :] = rigid + np.array([-0.2,0.6])
+    pos[12:16, :] = rigid + np.array([-1.3,0.5])
+    vel = np.array([[3.0, 0.0],[3.0, 0.0],[3.0, 0.0],[3.0, 0.0],
+                    [1.0, 0.0],[1.0, 0.0],[1.0, 0.0],[1.0, 0.0],
+                    [4.0, 0.0],[4.0, 0.0],[4.0, 0.0],[4.0, 0.0],
+                    [4.0, 0.0],[4.0, 0.0],[4.0, 0.0],[4.0, 0.0]]) * 0.3
+
+    for i in range(4):
         vel[i*4: (i+1)*4] += np.tile((rand(DIMENSION)-0.5), [4,1])
 
-    # print(vel)
-
-    force_g = np.tile(np.array([0, -5]), [8,1])
+    force_g = np.tile(np.array([0, -5]), [16,1])
     
-    simulator = PBD_Simulation(pos, vel, proj_model)
+    simulator = PBD_Simulation(pos, vel, proj_model, True)
 
     # xy_max = 2
     # data = simulator.pos
-    # full_data = np.zeros([32,2])
-    # full_data[0:16, :] = get_full_data(get_boundary(data[0:4,:]))
-    # full_data[16:32, :] = get_full_data(get_boundary(data[4:8,:]))
+    # full_data = np.zeros([64,2])
+    # for i in range(4):
+    #     full_data[i*16:(i+1)*16, :] = get_full_data(get_boundary(data[i*4:(i+1)*4,:]))
     # simulator.write_file_all(root_path, 0, full_data)
     # simulator.draw_fig_2d_all(root_path, 0, xy_max, full_data, force = None, circle = 2)
     
     for ite in range(TS):
+        if (ite % 10 == 0): print (ite)
         force = force_g
         simulator.advect(force, DT)
+        
         pos_list.append(simulator.pos)
-    #     data = simulator.pos
-    #     full_data = np.zeros([32,2])
-    #     full_data[0:16, :] = get_full_data(get_boundary(data[0:4,:]))
-    #     full_data[16:32, :] = get_full_data(get_boundary(data[4:8,:]))    
-    #     simulator.write_file_all(root_path, ite+1, full_data)
-    #     simulator.draw_fig_2d_all(root_path, ite+1, xy_max, full_data, force = force, circle = 2)
+
+        # data = simulator.pos
+        # for i in range(4):
+        #     full_data[i*16:(i+1)*16, :] = get_full_data(get_boundary(data[i*4:(i+1)*4,:]))
+        # simulator.write_file_all(root_path, ite+1, full_data)
+        # simulator.draw_fig_2d_all(root_path, ite+1, xy_max, full_data, force = force, circle = 2)
 
     # create_gif(root_path, 'figure_frame_', TS, "_" + MODEL_NAME, 10)
     # create_gif(root_path, 'figure_frame_all_', TS, "_" + MODEL_NAME, 10)
     return pos_list
+
 
 # used for visualization
 def get_boundary(new_data):
@@ -103,13 +113,11 @@ def get_full_data(boundary_data):
     return full_data
 
 
+R = 2
+r = 0.1
 rigid_eval = Rigid_Body_Eval(rigid)
 boundary_coli = Collision_Boundary_Eval(R-r)
 object_coli = Collision_Particle_Eval(r)
-
-# tmp = get_boundary(rigid)
-# plt.scatter(tmp[:,0], tmp[:,1])
-# plt.show()
 
 if __name__ == '__main__':
     NUM_SAMPLE = 200

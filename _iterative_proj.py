@@ -89,13 +89,13 @@ class GroupProjection(nn.Module):
         # x : B * num_particles * dimension 
         upd_x = x
         for ite in range(self.num_iter):
-            delta_x = torch.zeros(x.shape)
+            delta_x = torch.zeros(x.shape) # should automically convert to .cuda() if device is cuda; better to allocate the tensor in init?
             # form a larger batch containing each group
             # [batch, num_particles, dimension] -> [num_group*batch, num_particles_per_group, dimension]
             for i in range(len(self.projs)):
                 proj = self.projs[i]
                 groups = self.groups[i]
-                group_x = torch.zeros([len(groups) * x.shape[0], proj.num_particles, x.shape[2]])
+                group_x = torch.zeros([len(groups) * x.shape[0], proj.num_particles, x.shape[2]]) # .cuda()
                 for j in range(len(groups)):
                     group_idx = groups[j]
                     group_x[j*x.shape[0]:(j+1)*x.shape[0], :, :] = upd_x[:, group_idx, :]
