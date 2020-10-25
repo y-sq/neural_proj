@@ -16,4 +16,8 @@ All the dependencies are standard python packages:
     + The trained models are in \model folder.
 - simulation\_\*.py: Use the trained model to generate simulations.
     + Simulation results will be written to \results folder.
+    + In this branch, simulation scripts are modified to run multiple simulation samples
+
+## Webpage:
+[https://dartmouth-phys-ai.github.io/projects/neuralProj/](https://dartmouth-phys-ai.github.io/projects/neuralProj/)
 
