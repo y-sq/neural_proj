@@ -19,5 +19,5 @@ All the dependencies are standard python packages:
     + In "evaluation" branch, simulation scripts are modified to run multiple simulation samples
 
 ## Webpage:
-[https://dartmouth-phys-ai.github.io/projects/neuralProj/](https://dartmouth-phys-ai.github.io/projects/neuralProj/)
+[https://y-sq.github.io/proj/neural_proj/](https://y-sq.github.io/proj/neural_proj/)
 
